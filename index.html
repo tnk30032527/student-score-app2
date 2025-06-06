@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรแกรมแสดงคะแนนนักเรียนออนไลน์ บาสเกตบอล</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SweetAlert2 for notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Google Fonts: Kanit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Apply Kanit font to the whole page */
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #FEF9E7; /* Soft Yellow Background */
+        }
+        /* Custom styles for better look and feel */
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease-in-out;
+        }
+        .btn-primary {
+            background-color: #D35400; /* Soft Red/Orange */
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            background-color: #E67E22;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 10px -1px rgb(0 0 0 / 0.15);
+        }
+        .input-field {
+            border: 2px solid #FAD7A0;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #D35400;
+            box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.2);
+        }
+        .table-header {
+            background-color: #2C3E50; /* Dark Blue/Black */
+            color: white;
+        }
+        .grade-4 { background-color: #2ECC71; color: white; }
+        .grade-3-5 { background-color: #82E0AA; }
+        .grade-3 { background-color: #F1C40F; }
+        .grade-2-5 { background-color: #F39C12; }
+        .grade-2 { background-color: #E67E22; }
+        .grade-1-5 { background-color: #D35400; color: white;}
+        .grade-1 { background-color: #C0392B; color: white;}
+        .grade-0 { background-color: #7B241C; color: white;}
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Login Page Container -->
+    <div id="login-page" class="min-h-screen flex items-center justify-center p-4">
+        <div class="card w-full max-w-md p-8 text-center">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">🏀 โปรแกรมแสดงคะแนน</h1>
+            <h2 class="text-xl font-semibold text-gray-600 mb-6">วิชาบาสเกตบอล ชั้นมัธยมศึกษาปีที่ 3</h2>
+            <p class="text-gray-500 mb-8">กรุณาป้อนรหัสผ่าน (สำหรับครู) หรือรหัสนักเรียน (สำหรับนักเรียน) เพื่อเข้าสู่ระบบ</p>
+            <form id="login-form">
+                <input type="password" id="password" class="input-field w-full mb-6 text-center text-lg" placeholder="รหัสผ่าน / รหัสนักเรียน">
+                <button type="submit" class="btn-primary w-full">เข้าสู่ระบบ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Page Container (hidden by default) -->
+    <div id="dashboard-page" class="hidden min-h-screen p-4 md:p-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">🏀 Dashboard แสดงคะแนน</h1>
+                    <p id="welcome-message" class="text-gray-600"></p>
+                </div>
+                <div>
+                    <button id="fetch-data-btn" class="btn-primary">
+                        🔄 เรียกดูข้อมูลล่าสุด
+                    </button>
+                     <button id="logout-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all duration-200 ease-in-out ml-2">
+                        ออกจากระบบ
+                    </button>
+                </div>
+            </div>
+
+            <div class="card overflow-x-auto p-4">
+                <table class="min-w-full text-sm md:text-base">
+                    <thead id="table-header">
+                        <!-- Header row will be generated by JavaScript -->
+                    </thead>
+                    <tbody id="score-table-body" class="divide-y divide-gray-200">
+                        <!-- Student data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            <footer class="text-center text-gray-500 mt-6 text-sm">
+                <p>ข้อมูลอ้างอิงจาก Google Sheet โดยจะอัปเดตเมื่อกดปุ่ม "เรียกดูข้อมูลล่าสุด"</p>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyyVGSrL93QSWvancyXQTdj3ZLMV7FU8HehiYY5x5R09Nc-_y2sx8Ry68Bqe73qGpNj/exec';
+        const TEACHER_PASSWORD = '00001';
+
+        // --- DOM ELEMENTS ---
+        const loginPage = document.getElementById('login-page');
+        const dashboardPage = document.getElementById('dashboard-page');
+        const loginForm = document.getElementById('login-form');
+        const passwordInput = document.getElementById('password');
+        const fetchDataBtn = document.getElementById('fetch-data-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const tableHeader = document.getElementById('table-header');
+        const tableBody = document.getElementById('score-table-body');
+        const welcomeMessage = document.getElementById('welcome-message');
+
+        // --- STATE ---
+        let allStudentData = [];
+        let userRole = null; // 'teacher' or 'student'
+        let studentId = null;
+
+        // --- FUNCTIONS ---
+
+        /**
+         * Calculates the grade based on the total score.
+         * @param {number} totalScore - The student's total score.
+         * @returns {{grade: string, className: string}} The grade and its corresponding CSS class.
+         */
+        function calculateGrade(totalScore) {
+            if (totalScore >= 80) return { grade: '4', className: 'grade-4' };
+            if (totalScore >= 75) return { grade: '3.5', className: 'grade-3-5' };
+            if (totalScore >= 70) return { grade: '3', className: 'grade-3' };
+            if (totalScore >= 65) return { grade: '2.5', className: 'grade-2-5' };
+            if (totalScore >= 60) return { grade: '2', className: 'grade-2' };
+            if (totalScore >= 55) return { grade: '1.5', className: 'grade-1-5' };
+            if (totalScore >= 50) return { grade: '1', className: 'grade-1' };
+            return { grade: '0', className: 'grade-0' };
+        }
+
+        /**
+         * Renders the data into the HTML table.
+         * @param {Array} headers - The table headers.
+         * @param {Array} data - The student data to display.
+         */
+        function renderTable(headers, data) {
+            // Clear previous content
+            tableHeader.innerHTML = '';
+            tableBody.innerHTML = '';
+            
+            // Filter data based on user role
+            let dataToDisplay = [];
+            if (userRole === 'teacher') {
+                welcomeMessage.textContent = 'แสดงข้อมูลนักเรียนทั้งหมดในระบบ';
+                dataToDisplay = data;
+            } else if (userRole === 'student') {
+                // [FIXED] Use the correct header 'เลขประจำตัวนักเรียน' for filtering.
+                dataToDisplay = data.filter(student => String(student['เลขประจำตัวนักเรียน']) === String(studentId));
+                if (dataToDisplay.length > 0) {
+                     welcomeMessage.textContent = `ยินดีต้อนรับ, ${dataToDisplay[0]['ชื่อ-สกุล']} (รหัส: ${studentId})`;
+                } else {
+                     welcomeMessage.textContent = `ไม่พบข้อมูลสำหรับรหัสนักเรียน: ${studentId}`;
+                }
+            }
+
+            if(dataToDisplay.length === 0 && userRole === 'student') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่พบข้อมูล',
+                    text: `ไม่พบรหัสนักเรียน '${studentId}' ในระบบ`,
+                    confirmButtonColor: '#D35400',
+                });
+                logout();
+                return;
+            }
+
+            // Create table header
+            const headerRow = document.createElement('tr');
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.className = 'p-3 text-left font-semibold tracking-wider';
+                th.textContent = headerText;
+                headerRow.appendChild(th);
+            });
+            tableHeader.appendChild(headerRow);
+
+            // [FIXED & REFACTORED] Create table body with more robust score calculation.
+            dataToDisplay.forEach(student => {
+                const row = document.createElement('tr');
+
+                // Pre-calculate the total score for the student for robustness.
+                let totalScore = 0;
+                for (const key in student) {
+                    if (Object.prototype.hasOwnProperty.call(student, key) && key.startsWith('งานที่')) {
+                        totalScore += parseFloat(student[key]) || 0;
+                    }
+                }
+
+                // Create a cell for each header.
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.className = 'p-3';
+                    let cellValue;
+
+                    if (header === 'คะแนนรวม') {
+                        cellValue = totalScore;
+                        td.className += ' font-bold text-center';
+                    } else if (header === 'ผลประเมิน') {
+                        const { grade, className } = calculateGrade(totalScore);
+                        cellValue = grade;
+                        td.className += ` ${className} text-center font-bold`;
+                    } else {
+                        cellValue = student[header] !== undefined ? student[header] : '';
+                    }
+                    
+                    td.textContent = cellValue;
+                    row.appendChild(td);
+                });
+                tableBody.appendChild(row);
+            });
+        }
+
+        /**
+         * Fetches data from Google Sheets using JSONP.
+         */
+        function fetchData() {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                text: 'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลจาก Google Sheet',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Remove any old script tags to prevent conflicts
+            const oldScript = document.getElementById('jsonp-script');
+            if (oldScript) {
+                oldScript.remove();
+            }
+
+            // Create a new script tag for the JSONP request
+            const script = document.createElement('script');
+            script.id = 'jsonp-script';
+            script.src = `${GOOGLE_SCRIPT_URL}?callback=processData`;
+            document.body.appendChild(script);
+            
+            // Timeout for error handling
+            script.onerror = () => {
+                 Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด!',
+                    text: 'ไม่สามารถเชื่อมต่อกับ Google Sheet ได้ โปรดตรวจสอบการเชื่อมต่อหรือ URL ของ Script',
+                    confirmButtonColor: '#D35400',
+                });
+            };
+        }
+
+        /**
+         * Callback function to process data from JSONP request.
+         * This function MUST be in the global scope.
+         * @param {{headers: Array, data: Array}} response - The response object from Google Apps Script.
+         */
+        window.processData = (response) => {
+            if (response && response.data && response.headers) {
+                allStudentData = response.data;
+                // Save to local storage for persistence
+                localStorage.setItem('studentScoreData', JSON.stringify(response));
+                renderTable(response.headers, response.data);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'โหลดข้อมูลสำเร็จ!',
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+            } else {
+                 Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อมูลผิดพลาด',
+                    text: 'ได้รับข้อมูลในรูปแบบที่ไม่ถูกต้องจาก Google Sheet',
+                    confirmButtonColor: '#D35400',
+                });
+            }
+        };
+        
+        /**
+         * Handles the login process.
+         * @param {Event} e - The form submission event.
+         */
+        function handleLogin(e) {
+            e.preventDefault();
+            const pass = passwordInput.value.trim();
+            if (!pass) {
+                 Swal.fire({
+                    icon: 'warning',
+                    title: 'กรุณาป้อนรหัส',
+                    text: 'ช่องใส่รหัสผ่านว่างอยู่',
+                    confirmButtonColor: '#D35400',
+                });
+                return;
+            }
+
+            if (pass === TEACHER_PASSWORD) {
+                userRole = 'teacher';
+                studentId = null;
+                showDashboard();
+            } else {
+                // For students, we assume the password is their student ID
+                userRole = 'student';
+                studentId = pass;
+                showDashboard();
+            }
+            // Save login state
+            localStorage.setItem('userRole', userRole);
+            localStorage.setItem('studentId', studentId || '');
+        }
+
+        /**
+         * Switches view to the dashboard.
+         */
+        function showDashboard() {
+            loginPage.classList.add('hidden');
+            dashboardPage.classList.remove('hidden');
+            // Fetch data if it's not already loaded
+            if (allStudentData.length === 0) {
+                fetchData();
+            } else {
+                // If data exists from local storage, render it immediately
+                const cachedData = JSON.parse(localStorage.getItem('studentScoreData'));
+                renderTable(cachedData.headers, cachedData.data);
+            }
+        }
+        
+        /**
+         * Handles logout process.
+         */
+        function logout() {
+            // Clear state and local storage
+            userRole = null;
+            studentId = null;
+            // We keep the student data cache but clear the login state
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('studentId');
+            
+            // Switch view
+            dashboardPage.classList.add('hidden');
+            loginPage.classList.remove('hidden');
+            passwordInput.value = '';
+        }
+
+        /**
+         * Initializes the application on page load.
+         */
+        function initializeApp() {
+            // Check for cached data
+            const cachedData = localStorage.getItem('studentScoreData');
+            if (cachedData) {
+                try {
+                    const parsedData = JSON.parse(cachedData);
+                    allStudentData = parsedData.data;
+                } catch (error) {
+                    console.error("Error parsing cached data:", error);
+                    localStorage.removeItem('studentScoreData');
+                }
+            }
+            
+            // Check for saved login session
+            const savedRole = localStorage.getItem('userRole');
+            if (savedRole) {
+                userRole = savedRole;
+                studentId = localStorage.getItem('studentId');
+                showDashboard();
+            }
+
+            // Add event listeners
+            loginForm.addEventListener('submit', handleLogin);
+            fetchDataBtn.addEventListener('click', fetchData);
+            logoutBtn.addEventListener('click', logout);
+        }
+
+        // --- APP INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+    </script>
+</body>
+</html>
